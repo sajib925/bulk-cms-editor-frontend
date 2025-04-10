@@ -1,0 +1,6 @@
+{
+  "name": "webflow-react-ts-starter",
+  "size": "large",
+  "apiVersion": "2",
+  "publicDir": "dist"
+}
