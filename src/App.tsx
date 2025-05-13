@@ -2,26 +2,24 @@ import { useState } from "react";
 import { FeedbackPage } from "./app/views/Feedback";
 import { HelpPage } from "./app/views/Help";
 import { LicensePage } from "./app/views/License";
-import { SettingsPage } from "./app/views/Settings";
 import { FeedbackIcon } from "./assets/FeedbackIcon";
 import { HelpIcon } from "./assets/HelpIcon";
 import { LockIcon } from "./assets/LockIcon";
-import { SettingsIcon } from "./assets/SettingsIcon";
-import { StyleIcon } from "./assets/StyleIcon";
-import Collections from "./app/views/Collections";
 import { Tabs } from "./components/common/Tabs";
 import { LoadingScreen } from "./components/common/Loading";
 import { ViewTableIcon } from "./assets/TableIcon";
+import Collections from "./app/views/Collections";
 
 function App() {
   const [activeTab, setActiveTab] = useState<number>(0);
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  
 
 
   if (isLoading) return <LoadingScreen message={"Verifying registration and setting things up..."} />;
 
   return (
-    <main className={"h-screen w-full max-w-full overflow-hidden text-white"}>
+    <main className={"h-screen w-full max-w-full overflow-hidden text-white font-inter"}>
       
         <Tabs
           isSticky={true}
@@ -30,19 +28,10 @@ function App() {
           tabs={[
             {
               icon: <ViewTableIcon />,
-              menuItem: "Table",
+              menuItem: "Edit",
               render: () => (
                 <div className={"w-full"}>
                   <Collections />
-                </div>
-              ),
-            },
-            {
-              icon: <SettingsIcon />,
-              menuItem: "Settings",
-              render: () => (
-                <div className={"w-full"}>
-                  <SettingsPage />
                 </div>
               ),
             },
