@@ -22,6 +22,7 @@
         "@lexical/react": "^0.31.1",
         "@lexical/rich-text": "^0.31.1",
         "@lexical/selection": "^0.31.1",
+        "@lexical/table": "^0.31.1",
         "@radix-ui/react-alert-dialog": "^1.1.13",
         "@radix-ui/react-avatar": "^1.1.9",
         "@radix-ui/react-checkbox": "^1.1.5",

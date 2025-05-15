@@ -1,4 +1,4 @@
-import { useMemo, useEffect } from "react"
+import { useMemo, useEffect, ReactNode, useState } from "react"
 import { useQuery, useMutation } from "react-query"
 import { toast } from "react-toastify"
 import api, { deleteItems, fetchCollections, fetchCollectionSchema, fetchItems, updateItems } from "@/lib/api"
@@ -11,12 +11,58 @@ import ActionButtons from "@/components/collection/ActionButtons"
 import BulkEditField from "@/components/collection/BulkEditField"
 import RenderFieldInput from "@/components/collection/RenderFieldInput"
 import { Checkbox } from "@/components/ui/checkbox"
-import { cleanEmptyFields, generateSlug } from "@/lib/helper"
+import { cleanEmptyFields, generateSlug} from "@/lib/helper"
 import { ExtendedItem, FieldDefinition } from "@/types"
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core"
+import {
+  arrayMove,
+  SortableContext,
+  horizontalListSortingStrategy,
+  useSortable,
+} from "@dnd-kit/sortable"
+import { CSS } from "@dnd-kit/utilities"
+interface SortableColumnHeaderProps {
+  id: string
+  children: ReactNode
+}
+function SortableColumnHeader({ id, children }: SortableColumnHeaderProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id })
 
+  const style = {
+    transform: CSS.Translate.toString(transform),
+    transition,
+    cursor: "grab",
+    opacity: isDragging ? 0.5 : 1,
+  }
 
+  return (
+    <th
+      ref={setNodeRef}
+      style={style}
+      {...attributes}
+      {...listeners}
+      className="border border-[#444] px-4 py-3 select-none"
+    >
+      {children}
+    </th>
+  )
+}
 
 export default function Collections() {
+  
   const {
     searchQuery,
     setSearchQuery,
@@ -29,6 +75,7 @@ export default function Collections() {
     referenceCollections,
     selectedCollectionId,
     selectedIds,
+    // editedItemsCount,
     setBulkEditColumn,
     setBulkEditValue,
     setCurrentPage,
@@ -64,6 +111,7 @@ export default function Collections() {
     },
   )
 
+
   
 
   const referenceFields = useMemo(() => {
@@ -77,7 +125,7 @@ export default function Collections() {
       .filter((field) => field.collectionId)
   }, [collectionSchema])
  
-
+  console.log(collectionSchema);
 
 
   useEffect(() => {
@@ -149,7 +197,24 @@ export default function Collections() {
     })
     return [...Array.from(keySet), "lastUpdated", "createdOn"]
   }, [items])
+const [columnOrder, setColumnOrder] = useState(allFieldKeys)
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 5,
+      },
+    })
+  )
 
+  // Handle drag end to reorder columnOrder
+  function handleDragEnd(event:any) {
+    const { active, over } = event
+    if (active.id !== over.id) {
+      const oldIndex = columnOrder.indexOf(active.id)
+      const newIndex = columnOrder.indexOf(over.id)
+      setColumnOrder((items) => arrayMove(items, oldIndex, newIndex))
+    }
+  }
   const getFieldDefinition = (slug: string): FieldDefinition | undefined => {
     return collectionSchema.find((field) => field.slug === slug)
   }
@@ -322,8 +387,9 @@ const filteredItems = useMemo(() => {
           processedValue = Number(bulkEditValue)
           break
         case "Switch":
-          processedValue = bulkEditValue.toLowerCase() === "true"
+          processedValue = Boolean(bulkEditValue)
           break
+
         case "Reference":
           processedValue = bulkEditValue
           break
@@ -453,7 +519,7 @@ const filteredItems = useMemo(() => {
       }),
     }
 
-    console.log("Creating new items with payload:", payload)
+
 
     if (payload.items.length > 0) {
       mutationCreate.mutate(payload)
@@ -510,22 +576,136 @@ const filteredItems = useMemo(() => {
       </div>
 
      <div className="w-[800px] h-[440px]">
-            <div className="h-full w-full overflow-scroll custom-scroll border border-[#444] shadow-md bg-[#1a1a1a]">
-              <table className="min-w-[800px] border-collapse border text-sm rounded-sm">
-                <TableHeader
-                  allFieldKeys={allFieldKeys}
-                  selectedIds={selectedIds}
-                  paginatedItems={paginatedItems}
-                  sortKey={sortKey}
-                  sortOrder={sortOrder}
-                  bulkEditColumn={bulkEditColumn}
-                  setSelectedIds={setSelectedIds}
-                  handleSort={handleSort}
-                  setBulkEditColumn={setBulkEditColumn}
-                  setBulkEditValue={setBulkEditValue}
-                  getFieldIcon={getFieldIcon}
-                />
+        <div className="h-full w-full overflow-scroll custom-scroll border border-[#444] shadow-md bg-[#1a1a1a]">
+          <table className="min-w-[800px] border-collapse border text-sm rounded-sm">
+            <TableHeader
+              allFieldKeys={allFieldKeys}
+                    selectedIds={selectedIds}
+                    paginatedItems={paginatedItems}
+                    sortKey={sortKey}
+                    sortOrder={sortOrder}
+                    bulkEditColumn={bulkEditColumn}
+                    setSelectedIds={setSelectedIds}
+                    handleSort={handleSort}
+                    setBulkEditColumn={setBulkEditColumn}
+                    setBulkEditValue={setBulkEditValue}
+              getFieldIcon={getFieldIcon}
+            />
 
+            <tbody className="divide-y divide-[#333]">
+              {Object.entries(newItems).map(([tempId, fieldData]) => (
+                <tr key={tempId} className="bg-[#2a2a2a] hover:bg-[#333] transition">
+                  <td className="border border-[#444] text-center">
+                    <button
+                      onClick={() =>
+                        setNewItems((prev) => {
+                          const updated = { ...prev }
+                          delete updated[tempId]
+                          return updated
+                        })
+                      }
+                      className="text-red-500 hover:text-red-300"
+                    >
+                      <X size={16} />
+                    </button>
+                  </td>
+                  {allFieldKeys.map((key) => (
+                    <td key={key} className="border border-[#444] px-4 py-3">
+                      {key === "lastUpdated" || key === "createdOn" ? (
+                        <div className="text-gray-400 whitespace-nowrap">
+                          {key === "createdOn" ? "Will be set on creation" : "Will be set on update"}
+                        </div>
+                      ) : (
+                        <RenderFieldInput
+                          item={{ id: tempId, fieldData } as ExtendedItem}
+                          fieldKey={key}
+                          isNewItem={true}
+                          fieldDefinition={getFieldDefinition(key)}
+                          fieldData={fieldData[key]}
+                          referenceItems={getReferenceItems(key)}
+                          referenceItemName={
+                            fieldData[key] && typeof fieldData[key] === "string"
+                              ? getReferenceItemName(fieldData[key], key)
+                              : "Select..."
+                          }
+                          isUpdating={mutationUpdate.isLoading}
+                          handleSaveAll={handleSaveAll}
+                          editedItemsCount={Object.keys(editedItems).length}
+                          onUpdate={handleUpdateNewItem}
+                          getReferenceItemName={getReferenceItemName}
+                        />
+                      )}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+
+              {paginatedItems.map((item) => {
+                const { id } = item
+                const lastUpdated = item.lastUpdated || ""
+                const createdOn = item.createdOn || ""
+
+                return (
+                  <tr key={id} className="hover:bg-[#2f2f2f] transition">
+                    <td className="border border-[#444] text-center">
+                      <Checkbox checked={selectedIds.includes(id)} onCheckedChange={() => toggleSelectedId(id)} className="rounded-full" />
+                    </td>
+                    {allFieldKeys.map((key) => (
+                      <td key={key} className="border border-[#444]">
+                        {key === "lastUpdated" ? (
+                          <div className="py-2 px-3 whitespace-nowrap">{lastUpdated ? new Date(lastUpdated).toLocaleString() : "N/A"}</div>
+                        ) : key === "createdOn" ? (
+                          <div className="py-2 px-3 whitespace-nowrap">{createdOn ? new Date(createdOn).toLocaleString() : "N/A"}</div>
+                        ) : (
+                          <RenderFieldInput
+                            item={item}
+                                fieldKey={key}
+                                handleSaveAll={handleSaveAll}
+                                editedItemsCount={Object.keys(editedItems).length}
+                                fieldDefinition={getFieldDefinition(key)}
+                                fieldData={editedItems[id]?.[key] ?? item.fieldData[key]}
+                                referenceItems={getReferenceItems(key)}
+                                isUpdating={mutationUpdate.isLoading}
+                                referenceItemName={
+                                  item.fieldData[key] && typeof item.fieldData[key] === "string"
+                                    ? getReferenceItemName(editedItems[id]?.[key] ?? item.fieldData[key], key)
+                                    : "Select..."
+                                }
+                                onUpdate={handleUpdateEditedItem}
+                            getReferenceItemName={getReferenceItemName}
+                          />
+                        )}
+                      </td>
+                    ))}
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+           
+          {/* <table className="min-w-[800px] border-collapse border text-sm rounded-sm">
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragEnd={handleDragEnd}
+            >
+              <SortableContext items={columnOrder} strategy={horizontalListSortingStrategy}>
+                <thead>
+                <TableHeader
+                    columnOrder={columnOrder}
+                    selectedIds={selectedIds}
+                    paginatedItems={paginatedItems}
+                    sortKey={sortKey}
+                    sortOrder={sortOrder}
+                    bulkEditColumn={bulkEditColumn}
+                    setSelectedIds={setSelectedIds}
+                    handleSort={handleSort}
+                    setBulkEditColumn={setBulkEditColumn}
+                    setBulkEditValue={setBulkEditValue}
+                    getFieldIcon={getFieldIcon}
+                  />
+
+                </thead>
                 <tbody className="divide-y divide-[#333]">
                   {Object.entries(newItems).map(([tempId, fieldData]) => (
                     <tr key={tempId} className="bg-[#2a2a2a] hover:bg-[#333] transition">
@@ -543,15 +723,18 @@ const filteredItems = useMemo(() => {
                           <X size={16} />
                         </button>
                       </td>
-                      {allFieldKeys.map((key) => (
+
+                      {columnOrder.map((key) => (
                         <td key={key} className="border border-[#444] px-4 py-3">
                           {key === "lastUpdated" || key === "createdOn" ? (
                             <div className="text-gray-400 whitespace-nowrap">
-                              {key === "createdOn" ? "Will be set on creation" : "Will be set on update"}
+                              {key === "createdOn"
+                                ? "Will be set on creation"
+                                : "Will be set on update"}
                             </div>
                           ) : (
                             <RenderFieldInput
-                              item={{ id: tempId, fieldData } as ExtendedItem}
+                              item={{ id: tempId, fieldData }}
                               fieldKey={key}
                               isNewItem={true}
                               fieldDefinition={getFieldDefinition(key)}
@@ -562,6 +745,9 @@ const filteredItems = useMemo(() => {
                                   ? getReferenceItemName(fieldData[key], key)
                                   : "Select..."
                               }
+                              isUpdating={mutationUpdate.isLoading}
+                              handleSaveAll={handleSaveAll}
+                              editedItemsCount={Object.keys(editedItems).length}
                               onUpdate={handleUpdateNewItem}
                               getReferenceItemName={getReferenceItemName}
                             />
@@ -579,24 +765,44 @@ const filteredItems = useMemo(() => {
                     return (
                       <tr key={id} className="hover:bg-[#2f2f2f] transition">
                         <td className="border border-[#444] text-center">
-                          <Checkbox checked={selectedIds.includes(id)} onCheckedChange={() => toggleSelectedId(id)} className="rounded-full" />
+                          <Checkbox
+                            checked={selectedIds.includes(id)}
+                            onCheckedChange={() => toggleSelectedId(id)}
+                            className="rounded-full"
+                          />
                         </td>
-                        {allFieldKeys.map((key) => (
+
+                        {columnOrder.map((key) => (
                           <td key={key} className="border border-[#444]">
                             {key === "lastUpdated" ? (
-                              <div className="py-2 px-3 whitespace-nowrap">{lastUpdated ? new Date(lastUpdated).toLocaleString() : "N/A"}</div>
+                              <div className="py-2 px-3 whitespace-nowrap">
+                                {lastUpdated
+                                  ? new Date(lastUpdated).toLocaleString()
+                                  : "N/A"}
+                              </div>
                             ) : key === "createdOn" ? (
-                              <div className="py-2 px-3 whitespace-nowrap">{createdOn ? new Date(createdOn).toLocaleString() : "N/A"}</div>
+                              <div className="py-2 px-3 whitespace-nowrap">
+                                {createdOn
+                                  ? new Date(createdOn).toLocaleString()
+                                  : "N/A"}
+                              </div>
                             ) : (
                               <RenderFieldInput
                                 item={item}
                                 fieldKey={key}
+                                handleSaveAll={handleSaveAll}
+                                editedItemsCount={Object.keys(editedItems).length}
                                 fieldDefinition={getFieldDefinition(key)}
                                 fieldData={editedItems[id]?.[key] ?? item.fieldData[key]}
                                 referenceItems={getReferenceItems(key)}
+                                isUpdating={mutationUpdate.isLoading}
                                 referenceItemName={
-                                  item.fieldData[key] && typeof item.fieldData[key] === "string"
-                                    ? getReferenceItemName(editedItems[id]?.[key] ?? item.fieldData[key], key)
+                                  item.fieldData[key] &&
+                                  typeof item.fieldData[key] === "string"
+                                    ? getReferenceItemName(
+                                        editedItems[id]?.[key] ?? item.fieldData[key],
+                                        key
+                                      )
                                     : "Select..."
                                 }
                                 onUpdate={handleUpdateEditedItem}
@@ -609,13 +815,16 @@ const filteredItems = useMemo(() => {
                     )
                   })}
                 </tbody>
-              </table>
-            </div>
+              </SortableContext>
+            </DndContext>
+          </table> */}
+
+        </div>
       </div>
 
       {bulkEditColumn && (
         <div className="w-full absolute bottom-12 px-3 py-2 bg-[#1e1e1e] rounded flex justify-between items-center gap-3">
-          <div className="flex items-center gap-3 mb-2">
+          <div className="flex items-center gap-3">
             <span className="text-white">
               Bulk edit column: <strong>{bulkEditColumn}</strong>
             </span>
@@ -625,6 +834,8 @@ const filteredItems = useMemo(() => {
             <BulkEditField
               fieldDefinition={getFieldDefinition(bulkEditColumn)}
               bulkEditValue={bulkEditValue}
+              handleBulkColumnUpdate={handleBulkColumnUpdate}
+              isUpdating={mutationUpdate.isLoading}
               setBulkEditValue={setBulkEditValue}
               referenceItems={getReferenceItems(bulkEditColumn)}
             />
@@ -633,7 +844,7 @@ const filteredItems = useMemo(() => {
               onClick={handleBulkColumnUpdate}
               disabled={mutationUpdate.isLoading}
               className={`px-4 py-1 ${
-                mutationUpdate.isLoading
+               mutationUpdate.isLoading
                   ? "bg-gray-700 text-gray-300 cursor-not-allowed"
                   : "bg-[#006acc] text-white hover:bg-[#0055aa]"
               } rounded`}

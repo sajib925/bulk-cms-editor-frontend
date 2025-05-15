@@ -1,10 +1,10 @@
 import { useState } from "react";
 import { FeedbackPage } from "./app/views/Feedback";
 import { HelpPage } from "./app/views/Help";
-import { LicensePage } from "./app/views/License";
+// import { LicensePage } from "./app/views/License";
 import { FeedbackIcon } from "./assets/FeedbackIcon";
 import { HelpIcon } from "./assets/HelpIcon";
-import { LockIcon } from "./assets/LockIcon";
+// import { LockIcon } from "./assets/LockIcon";
 import { Tabs } from "./components/common/Tabs";
 import { LoadingScreen } from "./components/common/Loading";
 import { ViewTableIcon } from "./assets/TableIcon";
@@ -35,15 +35,15 @@ function App() {
                 </div>
               ),
             },
-            {
-              icon: <LockIcon />,
-              menuItem: "License",
-              render: () => (
-                <div className={"flex w-full"}>
-                  <LicensePage isLoading={false} />
-                </div>
-              ),
-            },
+            // {
+            //   icon: <LockIcon />,
+            //   menuItem: "License",
+            //   render: () => (
+            //     <div className={"flex w-full"}>
+            //       <LicensePage isLoading={false} />
+            //     </div>
+            //   ),
+            // },
             {
               icon: <HelpIcon />,
               menuItem: "Help",

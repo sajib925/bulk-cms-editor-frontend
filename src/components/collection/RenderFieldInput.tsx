@@ -11,6 +11,7 @@ import { Button } from "../ui/button";
 import { Calendar } from "../ui/calendar";
 import { cn } from "@/lib/utils";
 import { ExtendedItem, FieldDefinition, Item } from "@/types";
+import { stripHtml } from "@/lib/helper";
 
 
 
@@ -18,10 +19,13 @@ interface RenderFieldInputProps {
   item: ExtendedItem
   fieldKey: string
   isNewItem?: boolean
+  editedItemsCount: number
+  isUpdating: boolean
   fieldDefinition?: FieldDefinition
   fieldData: any
   referenceItems: Item[]
   referenceItemName: string
+  handleSaveAll: () => void
   onUpdate: (id: string, key: string, value: any) => void
   getReferenceItemName?: (refId: string, fieldSlug: string) => string
 }
@@ -34,10 +38,14 @@ export const RenderFieldInput = ({
   fieldData,
   referenceItems,
   referenceItemName,
+  handleSaveAll,
+  editedItemsCount,
+  isUpdating,
   onUpdate,
   getReferenceItemName,
 }: RenderFieldInputProps) => {
   const id = item.id
+
 
   if (!fieldDefinition) {
     return (
@@ -163,9 +171,22 @@ export const RenderFieldInput = ({
                   )
                 })}
               </div>
-         <AlertDialogAction className="h-8 w-8 flex items-center justify-center absolute -right-6 -top-6 rounded-full">
-          <IoMdClose />
-         </AlertDialogAction>
+              <div className="flex items-center justify-end gap-2">
+                <AlertDialogAction className="px-4 !py-1 h-8 rounded font-inter">
+                  Close
+                </AlertDialogAction>
+                <button
+                  onClick={handleSaveAll}
+                  disabled={editedItemsCount === 0 || isUpdating}
+                  className={`px-4 py-1 rounded font-inter ${
+                    editedItemsCount === 0 || isUpdating
+                      ? "bg-gray-700 text-gray-300 cursor-not-allowed"
+                      : "bg-[#006acc] text-white"
+                  }`}
+                >
+                  {isUpdating ? "Saving..." : "Save"}
+                </button>
+              </div>
           </AlertDialogContent>
         </AlertDialog>
           
@@ -266,40 +287,101 @@ export const RenderFieldInput = ({
           }}
         />
       )
-
+  
     case "RichText":
       return (
-        <>
-          <AlertDialog>
-            <AlertDialogTrigger>
-              <button className="w-full text-left rounded-none px-3 py-2 text-sm bg-transparent text-white hover:bg-gray-800">
-                {fieldData ? (
-                  <div className="truncate max-w-[200px]">
-                    {typeof fieldData === "string" ? fieldData.substring(0, 50) : "Rich content..."}...
-                  </div>
-                ) : (
-                  <span className="text-gray-400">Edit content...</span>
-                )}
-              </button>
-            </AlertDialogTrigger>
-            <AlertDialogContent className="p-0">
-              <div className="relative">
-                <RichTextField
+        <AlertDialog>
+          <AlertDialogTrigger>
+            <button className="w-full text-left rounded-none px-3 py-2 text-sm bg-transparent text-white hover:bg-gray-800">
+              {fieldData ? (
+                <div className="w-[150px]">
+                  {typeof fieldData === "string"
+                    ? stripHtml(fieldData).substring(0, 20)
+                    : "Rich content..."}
+                </div>
+              ) : (
+                <span className="text-gray-400">Edit content...</span>
+              )}
+            </button>
+          </AlertDialogTrigger>
+
+          <AlertDialogContent className="p-0 min-w-[700px] rounded-sm">
+            <div className="relative">
+              <RichTextField
                 id={id}
                 fieldData={fieldData || ""}
                 fieldKey={fieldKey}
                 onUpdate={onUpdate}
                 key={fieldKey}
               />
-              </div>
-          <AlertDialogAction className="h-8 w-8 flex items-center justify-center absolute -right-6 -top-6 rounded-full">
-            <IoMdClose />
-          </AlertDialogAction>
-            </AlertDialogContent>
-          </AlertDialog>
-        </>
-        
+            </div>
+            <div className="flex items-center justify-end gap-2">
+              <AlertDialogAction className="px-4 !py-1 h-8 rounded font-inter">
+                Close
+              </AlertDialogAction>
+              <button
+                onClick={handleSaveAll}
+                disabled={editedItemsCount === 0 || isUpdating}
+                className={`px-4 py-1 rounded font-inter ${
+                  editedItemsCount === 0 || isUpdating
+                    ? "bg-gray-700 text-gray-300 cursor-not-allowed"
+                    : "bg-[#006acc] text-white"
+                }`}
+              >
+                {isUpdating ? "Saving..." : "Save"}
+              </button>
+            </div>
+          </AlertDialogContent>
+        </AlertDialog>
       );
+
+
+
+
+  return (
+    <AlertDialog>
+      <AlertDialogTrigger>
+        <button className="w-full text-left rounded-none px-3 py-2 text-sm bg-transparent text-white hover:bg-gray-800">
+          {fieldData ? (
+            <div className="truncate max-w-[200px]">
+              {typeof fieldData === "string"
+                ? stripHtml(fieldData).substring(0, 50)
+                : "Rich content..."}...
+            </div>
+          ) : (
+            <span className="text-gray-400">Edit content...</span>
+          )}
+        </button>
+      </AlertDialogTrigger>
+      <AlertDialogContent className="p-0 min-w-[700px] rounded-sm">
+        <div className="relative">
+          <RichTextField
+            id={id}
+            fieldData={fieldData || ""}
+            fieldKey={fieldKey}
+            onUpdate={onUpdate}
+            key={fieldKey}
+          />
+        </div>
+        <div className="flex items-center justify-end gap-2">
+          <AlertDialogAction className="px-4 !py-1 h-8 rounded font-inter">
+            Close
+          </AlertDialogAction>
+          <button
+            onClick={handleSaveAll}
+            disabled={editedItemsCount === 0 || isUpdating}
+            className={`px-4 py-1 rounded font-inter ${
+              editedItemsCount === 0 || isUpdating
+                ? "bg-gray-700 text-gray-300 cursor-not-allowed"
+                : "bg-[#006acc] text-white"
+            }`}
+          >
+            {isUpdating ? "Saving..." : "Save"}
+          </button>
+        </div>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
 
     case "File":
     case "ImageRef":

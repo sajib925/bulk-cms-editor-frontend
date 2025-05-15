@@ -20,3 +20,32 @@ export const cleanEmptyFields = (fields: Record<string, any>): Record<string, an
     }),
   )
 }
+
+// src/lib/htmlUtils.ts
+
+export const stripHtml = (html: string): string => {
+  const div = document.createElement("div");
+  div.innerHTML = html;
+  return div.textContent || div.innerText || "";
+};
+
+type SetNewItemsType = React.Dispatch<React.SetStateAction<Record<string, any>>>;
+
+export const handleDuplicateItem = (
+  originalId: string,
+  setNewItems: SetNewItemsType
+) => {
+  const tempId = `dup-${Date.now()}`;
+
+  setNewItems((prev) => {
+    const itemToDuplicate = prev[originalId];
+    if (!itemToDuplicate) return prev;
+
+    const duplicatedItem = { ...itemToDuplicate };
+
+    return {
+      ...prev,
+      [tempId]: duplicatedItem,
+    };
+  });
+};
