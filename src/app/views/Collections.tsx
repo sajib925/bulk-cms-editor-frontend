@@ -1,8 +1,8 @@
-import { useMemo, useEffect, ReactNode, useState } from "react"
+import { useMemo, useEffect, useState } from "react"
 import { useQuery, useMutation } from "react-query"
 import { toast } from "react-toastify"
 import api, { deleteItems, fetchCollections, fetchCollectionSchema, fetchItems, updateItems } from "@/lib/api"
-import { X, Calendar, LinkIcon, Mail, Phone, Hash, Check, FileText, ImageIcon, Video, Palette } from "lucide-react"
+import { X,  Copy } from "lucide-react"
 import { useStore } from "@/store/useCollectionStore"
 import CollectionSelector from "@/components/collection/CollectionSelector"
 import TableHeader from "@/components/collection/TableHeader"
@@ -11,7 +11,7 @@ import ActionButtons from "@/components/collection/ActionButtons"
 import BulkEditField from "@/components/collection/BulkEditField"
 import RenderFieldInput from "@/components/collection/RenderFieldInput"
 import { Checkbox } from "@/components/ui/checkbox"
-import { cleanEmptyFields, generateSlug} from "@/lib/helper"
+import { cleanEmptyFields, generateSlug, handleDuplicateItem, useDynamicItems} from "@/lib/helper"
 import { ExtendedItem, FieldDefinition } from "@/types"
 import {
   DndContext,
@@ -24,42 +24,9 @@ import {
   arrayMove,
   SortableContext,
   horizontalListSortingStrategy,
-  useSortable,
 } from "@dnd-kit/sortable"
-import { CSS } from "@dnd-kit/utilities"
-interface SortableColumnHeaderProps {
-  id: string
-  children: ReactNode
-}
-function SortableColumnHeader({ id, children }: SortableColumnHeaderProps) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id })
+import { FieldIcon } from "@/components/collection/FieldIcon"
 
-  const style = {
-    transform: CSS.Translate.toString(transform),
-    transition,
-    cursor: "grab",
-    opacity: isDragging ? 0.5 : 1,
-  }
-
-  return (
-    <th
-      ref={setNodeRef}
-      style={style}
-      {...attributes}
-      {...listeners}
-      className="border border-[#444] px-4 py-3 select-none"
-    >
-      {children}
-    </th>
-  )
-}
 
 export default function Collections() {
   
@@ -111,9 +78,6 @@ export default function Collections() {
     },
   )
 
-
-  
-
   const referenceFields = useMemo(() => {
     return collectionSchema
       .filter((field) => field.type === "Reference" || field.type === "MultiReference")
@@ -125,7 +89,6 @@ export default function Collections() {
       .filter((field) => field.collectionId)
   }, [collectionSchema])
  
-  console.log(collectionSchema);
 
 
   useEffect(() => {
@@ -197,7 +160,9 @@ export default function Collections() {
     })
     return [...Array.from(keySet), "lastUpdated", "createdOn"]
   }, [items])
-const [columnOrder, setColumnOrder] = useState(allFieldKeys)
+  
+  const [columnOrder, setColumnOrder] = useState(allFieldKeys)
+
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
@@ -206,7 +171,10 @@ const [columnOrder, setColumnOrder] = useState(allFieldKeys)
     })
   )
 
-  // Handle drag end to reorder columnOrder
+  useEffect(() => {
+    setColumnOrder(allFieldKeys)
+  }, [allFieldKeys])
+
   function handleDragEnd(event:any) {
     const { active, over } = event
     if (active.id !== over.id) {
@@ -215,6 +183,7 @@ const [columnOrder, setColumnOrder] = useState(allFieldKeys)
       setColumnOrder((items) => arrayMove(items, oldIndex, newIndex))
     }
   }
+  
   const getFieldDefinition = (slug: string): FieldDefinition | undefined => {
     return collectionSchema.find((field) => field.slug === slug)
   }
@@ -231,127 +200,17 @@ const [columnOrder, setColumnOrder] = useState(allFieldKeys)
   }
 
 
-const filteredItems = useMemo(() => {
-  const now = new Date()
-
-  return items.filter((item) => {
-    if (lastUpdatedFilter !== "all" && item.lastUpdated) {
-      const updatedDate = new Date(item.lastUpdated)
-      let thresholdDate: Date
-
-      switch (lastUpdatedFilter) {
-        case "2d":
-          thresholdDate = new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000)
-          break
-        case "10d":
-          thresholdDate = new Date(now.getTime() - 10 * 24 * 60 * 60 * 1000)
-          break
-        case "30d":
-          thresholdDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
-          break
-        case "1m":
-          thresholdDate = new Date()
-          thresholdDate.setMonth(thresholdDate.getMonth() - 1)
-          break
-        default:
-          thresholdDate = new Date(0) 
-      }
-
-      if (updatedDate < thresholdDate) return false
-    }
-
-    const fieldDataMatch = Object.entries(item.fieldData).some(([key, val]) => {
-      if (typeof val === "string") {
-        return val.toLowerCase().includes(searchQuery.toLowerCase())
-      }
-
-      const fieldDef = getFieldDefinition(key)
-      if (fieldDef?.type === "Reference") {
-        const referenceName = getReferenceItemName(val as string, key)
-        return referenceName.toLowerCase().includes(searchQuery.toLowerCase())
-      } else if (fieldDef?.type === "MultiReference" && Array.isArray(val)) {
-        return val.some((refId) => {
-          const referenceName = getReferenceItemName(refId, key)
-          return referenceName.toLowerCase().includes(searchQuery.toLowerCase())
-        })
-      }
-
-      return false
-    })
-
-    const createdOnMatch = item.createdOn
-      ? new Date(item.createdOn).toLocaleString().toLowerCase().includes(searchQuery.toLowerCase())
-      : false
-
-    const lastUpdatedMatch = item.lastUpdated
-      ? new Date(item.lastUpdated).toLocaleString().toLowerCase().includes(searchQuery.toLowerCase())
-      : false
-
-    return fieldDataMatch || createdOnMatch || lastUpdatedMatch
+  const { filteredItems, sortedItems, paginatedItems } = useDynamicItems({
+    items,
+    searchQuery,
+    lastUpdatedFilter,
+    sortKey,
+    sortOrder,
+    currentPage,
+    pageSize,
+    getFieldDefinition,
+    getReferenceItemName
   })
-}, [items, searchQuery, referenceCollections, lastUpdatedFilter])
-
-  const sortedItems = useMemo(() => {
-    if (!sortKey) return filteredItems
-
-    const sorted = [...filteredItems].sort((a, b) => {
-      if (sortKey === "lastUpdated" || sortKey === "createdOn") {
-
-        function toValidDate(value: unknown): Date {
-          if (value instanceof Date) return value;
-          if (typeof value === "string" || typeof value === "number") {
-            const date = new Date(value);
-            if (!isNaN(date.getTime())) return date;
-          }
-          return new Date(); 
-        }
-
-        const aValue = a[sortKey as keyof ExtendedItem];
-        const bValue = b[sortKey as keyof ExtendedItem];
-
-        const aDate = toValidDate(aValue).getTime();
-        const bDate = toValidDate(bValue).getTime();
-        return sortOrder === "asc" ? aDate - bDate : bDate - aDate
-      }
-
-      const fieldDef = getFieldDefinition(sortKey)
-      if (fieldDef?.type === "Reference") {
-        const aVal = a.fieldData[sortKey] as string
-        const bVal = b.fieldData[sortKey] as string
-
-        const aName = aVal ? getReferenceItemName(aVal, sortKey) : ""
-        const bName = bVal ? getReferenceItemName(bVal, sortKey) : ""
-        return sortOrder === "asc" ? aName.localeCompare(bName) : bName.localeCompare(aName)
-      } else if (fieldDef?.type === "MultiReference") {
-        const aVal = (a.fieldData[sortKey] as string[]) || []
-        const bVal = (b.fieldData[sortKey] as string[]) || []
-
-        if (aVal.length !== bVal.length) {
-          return sortOrder === "asc" ? aVal.length - bVal.length : bVal.length - aVal.length
-        }
-
-        if (aVal.length > 0 && bVal.length > 0) {
-          const aName = getReferenceItemName(aVal[0], sortKey)
-          const bName = getReferenceItemName(bVal[0], sortKey)
-          return sortOrder === "asc" ? aName.localeCompare(bName) : bName.localeCompare(aName)
-        }
-
-        return 0
-      }
-
-      const aVal = a.fieldData[sortKey] || ""
-      const bVal = b.fieldData[sortKey] || ""
-
-      return sortOrder === "asc" ? String(aVal).localeCompare(String(bVal)) : String(bVal).localeCompare(String(aVal))
-    })
-
-    return sorted
-  }, [filteredItems, sortKey, sortOrder, referenceCollections])
-
-  const paginatedItems = useMemo(() => {
-    const start = (currentPage - 1) * pageSize
-    return sortedItems.slice(start, start + pageSize)
-  }, [sortedItems, currentPage, pageSize])
 
   const toggleSelectedId = (id: string) => {
     setSelectedIds((prev) => (prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]))
@@ -519,8 +378,6 @@ const filteredItems = useMemo(() => {
       }),
     }
 
-
-
     if (payload.items.length > 0) {
       mutationCreate.mutate(payload)
     } else {
@@ -529,36 +386,11 @@ const filteredItems = useMemo(() => {
   }
 
   const getFieldIcon = (fieldSlug: string) => {
-    const fieldDef = getFieldDefinition(fieldSlug)
-    if (!fieldDef) return null
-
-    switch (fieldDef.type) {
-      case "PlainText":
-        return <FileText size={14} className="text-gray-400" />
-      case "RichText":
-        return <FileText size={14} className="text-gray-400" />
-      case "ImageRef":
-        return <ImageIcon size={14} className="text-gray-400" />
-      case "VideoLink":
-        return <Video size={14} className="text-gray-400" />
-      case "Link":
-        return <LinkIcon size={14} className="text-gray-400" />
-      case "Email":
-        return <Mail size={14} className="text-gray-400" />
-      case "Phone":
-        return <Phone size={14} className="text-gray-400" />
-      case "Number":
-        return <Hash size={14} className="text-gray-400" />
-      case "DateTime":
-        return <Calendar size={14} className="text-gray-400" />
-      case "Switch":
-        return <Check size={14} className="text-gray-400" />
-      case "Color":
-        return <Palette size={14} className="text-gray-400" />
-      default:
-        return null
-    }
-  }
+  const fieldDef = getFieldDefinition(fieldSlug)
+  
+  if (!fieldDef) return null
+  return <FieldIcon type={fieldDef.type} />
+}
 
   return (
     <div className="h-screen flex items-center flex-col gap-0">
@@ -576,114 +408,8 @@ const filteredItems = useMemo(() => {
       </div>
 
      <div className="w-[800px] h-[440px]">
-        <div className="h-full w-full overflow-scroll custom-scroll border border-[#444] shadow-md bg-[#1a1a1a]">
+        <div className="h-full w-full overflow-scroll custom-scroll border border-[#444] shadow-md bg-[#1a1a1a]"> 
           <table className="min-w-[800px] border-collapse border text-sm rounded-sm">
-            <TableHeader
-              allFieldKeys={allFieldKeys}
-                    selectedIds={selectedIds}
-                    paginatedItems={paginatedItems}
-                    sortKey={sortKey}
-                    sortOrder={sortOrder}
-                    bulkEditColumn={bulkEditColumn}
-                    setSelectedIds={setSelectedIds}
-                    handleSort={handleSort}
-                    setBulkEditColumn={setBulkEditColumn}
-                    setBulkEditValue={setBulkEditValue}
-              getFieldIcon={getFieldIcon}
-            />
-
-            <tbody className="divide-y divide-[#333]">
-              {Object.entries(newItems).map(([tempId, fieldData]) => (
-                <tr key={tempId} className="bg-[#2a2a2a] hover:bg-[#333] transition">
-                  <td className="border border-[#444] text-center">
-                    <button
-                      onClick={() =>
-                        setNewItems((prev) => {
-                          const updated = { ...prev }
-                          delete updated[tempId]
-                          return updated
-                        })
-                      }
-                      className="text-red-500 hover:text-red-300"
-                    >
-                      <X size={16} />
-                    </button>
-                  </td>
-                  {allFieldKeys.map((key) => (
-                    <td key={key} className="border border-[#444] px-4 py-3">
-                      {key === "lastUpdated" || key === "createdOn" ? (
-                        <div className="text-gray-400 whitespace-nowrap">
-                          {key === "createdOn" ? "Will be set on creation" : "Will be set on update"}
-                        </div>
-                      ) : (
-                        <RenderFieldInput
-                          item={{ id: tempId, fieldData } as ExtendedItem}
-                          fieldKey={key}
-                          isNewItem={true}
-                          fieldDefinition={getFieldDefinition(key)}
-                          fieldData={fieldData[key]}
-                          referenceItems={getReferenceItems(key)}
-                          referenceItemName={
-                            fieldData[key] && typeof fieldData[key] === "string"
-                              ? getReferenceItemName(fieldData[key], key)
-                              : "Select..."
-                          }
-                          isUpdating={mutationUpdate.isLoading}
-                          handleSaveAll={handleSaveAll}
-                          editedItemsCount={Object.keys(editedItems).length}
-                          onUpdate={handleUpdateNewItem}
-                          getReferenceItemName={getReferenceItemName}
-                        />
-                      )}
-                    </td>
-                  ))}
-                </tr>
-              ))}
-
-              {paginatedItems.map((item) => {
-                const { id } = item
-                const lastUpdated = item.lastUpdated || ""
-                const createdOn = item.createdOn || ""
-
-                return (
-                  <tr key={id} className="hover:bg-[#2f2f2f] transition">
-                    <td className="border border-[#444] text-center">
-                      <Checkbox checked={selectedIds.includes(id)} onCheckedChange={() => toggleSelectedId(id)} className="rounded-full" />
-                    </td>
-                    {allFieldKeys.map((key) => (
-                      <td key={key} className="border border-[#444]">
-                        {key === "lastUpdated" ? (
-                          <div className="py-2 px-3 whitespace-nowrap">{lastUpdated ? new Date(lastUpdated).toLocaleString() : "N/A"}</div>
-                        ) : key === "createdOn" ? (
-                          <div className="py-2 px-3 whitespace-nowrap">{createdOn ? new Date(createdOn).toLocaleString() : "N/A"}</div>
-                        ) : (
-                          <RenderFieldInput
-                            item={item}
-                                fieldKey={key}
-                                handleSaveAll={handleSaveAll}
-                                editedItemsCount={Object.keys(editedItems).length}
-                                fieldDefinition={getFieldDefinition(key)}
-                                fieldData={editedItems[id]?.[key] ?? item.fieldData[key]}
-                                referenceItems={getReferenceItems(key)}
-                                isUpdating={mutationUpdate.isLoading}
-                                referenceItemName={
-                                  item.fieldData[key] && typeof item.fieldData[key] === "string"
-                                    ? getReferenceItemName(editedItems[id]?.[key] ?? item.fieldData[key], key)
-                                    : "Select..."
-                                }
-                                onUpdate={handleUpdateEditedItem}
-                            getReferenceItemName={getReferenceItemName}
-                          />
-                        )}
-                      </td>
-                    ))}
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-           
-          {/* <table className="min-w-[800px] border-collapse border text-sm rounded-sm">
             <DndContext
               sensors={sensors}
               collisionDetection={closestCenter}
@@ -723,9 +449,8 @@ const filteredItems = useMemo(() => {
                           <X size={16} />
                         </button>
                       </td>
-
                       {columnOrder.map((key) => (
-                        <td key={key} className="border border-[#444] px-4 py-3">
+                        <td key={key} className="border border-[#444]">
                           {key === "lastUpdated" || key === "createdOn" ? (
                             <div className="text-gray-400 whitespace-nowrap">
                               {key === "createdOn"
@@ -764,12 +489,27 @@ const filteredItems = useMemo(() => {
 
                     return (
                       <tr key={id} className="hover:bg-[#2f2f2f] transition">
-                        <td className="border border-[#444] text-center">
-                          <Checkbox
+                        <td className="border border-[#444] text-center px-2">
+                          {/* <Checkbox
                             checked={selectedIds.includes(id)}
                             onCheckedChange={() => toggleSelectedId(id)}
                             className="rounded-full"
-                          />
+                          /> */}
+                           <div className="flex items-center justify-center gap-2 ">
+                            <Checkbox
+                              checked={selectedIds.includes(id)}
+                              onCheckedChange={() => toggleSelectedId(id)}
+                              title="Delete"
+                              className="rounded-full"
+                            />
+                            <button
+                              onClick={() => handleDuplicateItem(item, setNewItems)}
+                              className="text-white hover:text-blue-300"
+                              title="Duplicate"
+                            >
+                              <Copy size={16} />
+                            </button>
+                          </div>
                         </td>
 
                         {columnOrder.map((key) => (
@@ -817,7 +557,7 @@ const filteredItems = useMemo(() => {
                 </tbody>
               </SortableContext>
             </DndContext>
-          </table> */}
+          </table>
 
         </div>
       </div>
@@ -882,3 +622,4 @@ const filteredItems = useMemo(() => {
     </div>
   )
 }
+

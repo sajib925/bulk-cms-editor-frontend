@@ -5,12 +5,10 @@ import { ContentEditable } from "@lexical/react/LexicalContentEditable"
 import { HistoryPlugin } from "@lexical/react/LexicalHistoryPlugin"
 import { ListPlugin } from "@lexical/react/LexicalListPlugin"
 import { LinkPlugin } from "@lexical/react/LexicalLinkPlugin"
-import { TablePlugin } from "@lexical/react/LexicalTablePlugin" // Added TablePlugin
 import { OnChangePlugin } from "@lexical/react/LexicalOnChangePlugin"
 import { HeadingNode, $createHeadingNode, QuoteNode, $createQuoteNode } from "@lexical/rich-text"
 import { ListNode, ListItemNode } from "@lexical/list"
-import { LinkNode, TOGGLE_LINK_COMMAND, $isLinkNode, $createLinkNode } from "@lexical/link"
-import { TableNode, TableCellNode, TableRowNode, INSERT_TABLE_COMMAND } from "@lexical/table" // Added table imports
+import { LinkNode, TOGGLE_LINK_COMMAND, $isLinkNode} from "@lexical/link"
 import {
   $getRoot,
   $getSelection,
@@ -47,9 +45,11 @@ import {
   Undo,
   Quote,
   Link,
-  Table,
+  Image,
+  Video,
 } from "lucide-react"
 import { $createImageNode, ImageNode } from "./nodes/ImageNode"
+import { $createVideoNode, VideoNode } from "./nodes/VideoNode"
 
 type RichTextFieldProps = {
   fieldData: string
@@ -108,19 +108,13 @@ export default function RichTextField({ fieldData, id, fieldKey, onUpdate }: Ric
         underline: "underline",
         code: "bg-gray-800 text-green-300 px-1 py-0.5 rounded text-sm font-mono",
       },
-      // Add table styling
-      table: "border-collapse w-full my-4",
-      tableRow: "border-b border-gray-700",
-      tableCell: "border border-gray-700 p-2",
-      tableCellHeader: "bg-gray-800 font-bold p-2 border border-gray-700",
-      // Add link styling
       link: "text-blue-400 underline cursor-pointer",
     },
     onError: (error: Error) => {
       console.error("Lexical error:", error)
     },
     editorState: initialEditorState ?? undefined,
-    nodes: [HeadingNode, QuoteNode, ListNode, ListItemNode, LinkNode, TableNode, TableCellNode, TableRowNode,  ImageNode],
+    nodes: [HeadingNode, QuoteNode, ListNode, ListItemNode, LinkNode, ImageNode, VideoNode],
   }
 
   return (
@@ -132,13 +126,12 @@ export default function RichTextField({ fieldData, id, fieldKey, onUpdate }: Ric
             contentEditable={
               <ContentEditable className="h-[350px] overflow-auto outline-none p-3 bg-[#1e1e1e] text-white border border-gray-600 rounded" />
             }
-            placeholder={<div className="text-gray-500 p-3">Start typing here...</div>}
+            // placeholder={<div className="text-gray-500 p-3">Start typing here...</div>}
             ErrorBoundary={({ children }) => <>{children}</>}
           />
           <HistoryPlugin />
           <ListPlugin />
           <LinkPlugin />
-          <TablePlugin />
           <OnChangePlugin
             onChange={(editorState: EditorState, editor: LexicalEditor) => {
               editorState.read(() => {
@@ -161,16 +154,30 @@ function RichTextToolbar() {
   const [isEditingLink, setIsEditingLink] = useState(false)
   const [isImageModalOpen, setIsImageModalOpen] = useState(false);
   const [imageUrl, setImageUrl] = useState("");
+  const [isVideoModalOpen, setIsVideoModalOpen] = useState(false);
+  const [videoUrl, setVideoUrl] = useState("");
 
-  // insert image handler
   const insertImage = () => {
     if (imageUrl) {
       editor.update(() => {
         const imageNode = $createImageNode(imageUrl);
+        console.log(imageNode);
+        
         $insertNodes([imageNode]);
       });
       setIsImageModalOpen(false);
       setImageUrl("");
+    }
+  };
+
+  const insertVideo = () => {
+    if (videoUrl) {
+      editor.update(() => {
+        const videoNode = $createVideoNode(videoUrl);
+        $insertNodes([videoNode]);
+      });
+      setIsVideoModalOpen(false);
+      setVideoUrl("");
     }
   };
 
@@ -232,20 +239,8 @@ function RichTextToolbar() {
   }
 
 
-  
-
-  const insertTable = () => {
-    editor.dispatchCommand(INSERT_TABLE_COMMAND, {
-      // @ts-ignore 
-      rows: 3,
-      // @ts-ignore
-      columns: 3,
-      includeHeaders: true,
-    })
-  }
-
   return (
-    <div className="flex flex-wrap gap-1 p-1 mb-2 border-b border-gray-700">
+    <div className="flex flex-wrap gap-1 p-1 mb-1 border-b border-gray-700">
       <button
         onClick={() => editor.dispatchCommand(UNDO_COMMAND, undefined)}
         className="p-1 text-gray-300 hover:bg-gray-700 rounded"
@@ -383,58 +378,25 @@ function RichTextToolbar() {
         <AlignRight size={16} />
       </button>
 
-      {/* Link button */}
+      <div className="w-px h-6 bg-gray-700 mx-1"></div>
+      
       <button onClick={insertLink} className="p-1 text-gray-300 hover:bg-gray-700 rounded" title="Insert Link">
         <Link size={16} />
       </button>
-
-      {/* Table button */}
-      <button onClick={insertTable} className="p-1 text-gray-300 hover:bg-gray-700 rounded" title="Insert Table">
-        <Table size={16} />
-      </button>
-      {/* Image button */}
       <button
         onClick={() => setIsImageModalOpen(true)}
         className="p-1 text-gray-300 hover:bg-gray-700 rounded"
         title="Insert Image"
       >
-        🖼️
+        <Image size={16} />
       </button>
-
-      {/* Image Modal */}
-      {isImageModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-gray-800 p-4 rounded-lg w-80">
-            <h3 className="text-white text-lg mb-4">Insert Image</h3>
-            <div className="mb-4">
-              <label className="block text-gray-300 mb-1">Image URL</label>
-              <input
-                type="text"
-                value={imageUrl}
-                onChange={(e) => setImageUrl(e.target.value)}
-                
-                className="w-full p-2 bg-gray-700 text-white rounded border border-gray-600"
-                placeholder="https://example.com/image.jpg"
-              />
-            </div>
-            <div className="flex justify-end gap-2">
-              <button
-                onClick={() => setIsImageModalOpen(false)}
-                className="px-4 py-2 bg-gray-700 text-white rounded hover:bg-gray-600"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={insertImage}
-                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-500"
-              >
-                Insert
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
+      <button
+        onClick={() => setIsVideoModalOpen(true)}
+        className="p-1 text-gray-300 hover:bg-gray-700 rounded"
+        title="Insert Video"
+      >
+        <Video size={16} />
+      </button>
 
       {/* Link Modal */}
       {isLinkModalOpen && (
@@ -477,6 +439,70 @@ function RichTextToolbar() {
           </div>
         </div>
       )}
+
+      {/* Image Modal */}
+      {isImageModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-gray-800 p-4 rounded-lg w-80">
+            <h3 className="text-white text-lg mb-4">Insert Image</h3>
+            <div className="mb-4">
+              <label className="block text-gray-300 mb-1">Image URL</label>
+              <input
+                type="text"
+                value={imageUrl}
+                onChange={(e) => setImageUrl(e.target.value)}
+                
+                className="w-full p-2 bg-gray-700 text-white rounded border border-gray-600"
+                placeholder="https://example.com/image.jpg"
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setIsImageModalOpen(false)}
+                className="px-4 py-2 bg-gray-700 text-white rounded hover:bg-gray-600"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={insertImage}
+                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-500"
+              >
+                Insert
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+       {/* Video Modal */}
+      {isVideoModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-gray-800 p-4 rounded-lg w-80">
+            <h3 className="text-white text-lg mb-4">Insert Video</h3>
+            <input
+              type="text"
+              value={videoUrl}
+              onChange={(e) => setVideoUrl(e.target.value)}
+              className="w-full p-2 bg-gray-700 text-white rounded border border-gray-600 mb-4"
+              placeholder="https://example.com/video.mp4"
+            />
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setIsVideoModalOpen(false)}
+                className="px-4 py-2 bg-gray-700 text-white rounded hover:bg-gray-600"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={insertVideo}
+                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-500"
+              >
+                Insert
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   )
 }

@@ -9,8 +9,6 @@ import { Calendar } from "../ui/calendar"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select"
 import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from "@/components/ui/dialog"
 import RichTextField from "./RichTextField"
-import { IoMdClose } from "react-icons/io"
-import { AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogTrigger } from "../ui/alert-dialog"
 
 interface BulkEditFieldProps {
   fieldDefinition: FieldDefinition | undefined
@@ -25,6 +23,7 @@ const BulkEditField = ({ fieldDefinition, bulkEditValue, setBulkEditValue, refer
   if (!fieldDefinition) return null
 
   switch (fieldDefinition.type) {
+
     case "Reference":
       return (
         <div className="flex-1">
@@ -37,7 +36,7 @@ const BulkEditField = ({ fieldDefinition, bulkEditValue, setBulkEditValue, refer
               <SelectTrigger className="bg-[#1e1e1e] text-white border border-gray-600">
                 <SelectValue placeholder="Select reference..." />
               </SelectTrigger>
-              <SelectContent className="bg-[#1e1e1e] text-white border border-gray-600 max-h-[200px] overflow-y-auto">
+              <SelectContent className="!bg-[#292929] text-white !rounded-b-sm border border-gray-600 max-h-[200px] overflow-y-auto">
                 <SelectItem value="none">None</SelectItem>
                 {referenceItems.map((refItem) => (
                   <SelectItem key={refItem.id} value={refItem.id}>
@@ -160,7 +159,6 @@ const BulkEditField = ({ fieldDefinition, bulkEditValue, setBulkEditValue, refer
             />
         </div>
       )
-    
 
     case "Switch":
       return (
@@ -175,6 +173,7 @@ const BulkEditField = ({ fieldDefinition, bulkEditValue, setBulkEditValue, refer
           </div>
         </div>
       )
+      
     case "RichText":
       return (
         <Dialog>
@@ -183,19 +182,19 @@ const BulkEditField = ({ fieldDefinition, bulkEditValue, setBulkEditValue, refer
               Update All Rich Text Fields
             </button>
           </DialogTrigger>
-          <DialogContent className="p-0 min-w-[700px]">
+          <DialogContent className="p-0 min-w-[700px] !bg-[#292929] text-white !rounded-b-sm gap-0">
             <RichTextField
-              id={fieldDefinition.slug} // using slug as fallback ID
+              id={fieldDefinition.slug} 
               fieldData={bulkEditValue || ""}
               fieldKey={fieldDefinition.slug}
               onUpdate={(id, key, value) => {
-                setBulkEditValue(value) // update local state
+                setBulkEditValue(value) 
               }}
               key={fieldDefinition.slug}
             />
-            <DialogFooter className="flex items-center justify-end gap-2">
+            <DialogFooter className="flex items-center justify-end gap-2 py-1 px-3 !rounded-b !bg-[#292929] mt-2">
               <DialogClose asChild>
-                <Button type="button" variant="secondary" className="rounded !py-1 h-8">
+                <Button type="button" variant="secondary" className="rounded !py-1 h-8 !bg-[#2f2f2f] border !border-gray-400">
                   Close
                 </Button>
               </DialogClose>
@@ -269,7 +268,7 @@ const BulkEditField = ({ fieldDefinition, bulkEditValue, setBulkEditValue, refer
       </div>
     )
 
-case "PlainText":
+  case "PlainText":
       if (fieldDefinition.validations?.singleLine === false) {
         return (
           <textarea

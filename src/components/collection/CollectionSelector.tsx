@@ -35,7 +35,7 @@ const CollectionSelector = ({
         <SelectTrigger className="w-[170px] !py-[6px] bg-transparent !border !border-[#444] text-white rounded-sm">
           <SelectValue placeholder="Select a collection" />
         </SelectTrigger>
-        <SelectContent className="bg-[#1e1e1e] text-white">
+        <SelectContent className="!bg-[#292929] text-white !rounded-b-sm">
           {collections.map((col) => (
             <SelectItem key={col.id} value={col.id}>
               {col.displayName}
@@ -48,7 +48,7 @@ const CollectionSelector = ({
         <SelectTrigger className="w-[150px] !py-[6px] bg-transparent !border !border-[#444] !rounded-sm text-white">
           <SelectValue placeholder="Filter by update" />
         </SelectTrigger>
-        <SelectContent className="bg-[#1e1e1e] text-white rounded-sm">
+        <SelectContent className="!bg-[#292929] text-white !rounded-b-sm">
           <SelectItem value="2d">Last 2 days</SelectItem>
           <SelectItem value="10d">Last 10 days</SelectItem>
           <SelectItem value="30d">Last 30 days</SelectItem>
